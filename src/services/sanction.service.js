@@ -67,7 +67,7 @@ async function applySanctionForViolation(violationId) {
       vehicleId,
       violationId,
       type: sanctionType,
-      status: "active",
+      status: sanctionType === "warning" ? "completed" : "active",
       offenseNumber: offenseCount,
       startAt: admin.firestore.FieldValue.serverTimestamp(),
       endAt: endAt
