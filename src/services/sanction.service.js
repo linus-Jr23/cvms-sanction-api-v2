@@ -3,6 +3,7 @@ const { addWorkingDays } = require("../utils/date.utils");
 
 async function applySanctionForViolation(violationId) {
   await db.runTransaction(async (tx) => {
+    // First, get all the data we need (reads first)
     const violationRef = db.collection("violations").doc(violationId);
     const violationSnap = await tx.get(violationRef);
 
@@ -15,13 +16,7 @@ async function applySanctionForViolation(violationId) {
 
     const vehicleId = violation.vehicleId;
 
-    // Confirm violation
-    tx.update(violationRef, {
-      status: "confirmed",
-      confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Count confirmed violations
+    // Count confirmed violations for this vehicle
     const offensesSnap = await tx.get(
       db
         .collection("violations")
@@ -29,7 +24,7 @@ async function applySanctionForViolation(violationId) {
         .where("status", "==", "confirmed")
     );
 
-    const offenseCount = offensesSnap.size;
+    const offenseCount = offensesSnap.size + 1; // +1 for the violation being confirmed
 
     let sanctionType = null;
     let vehicleStatus = "active";
@@ -49,8 +44,15 @@ async function applySanctionForViolation(violationId) {
 
     if (!sanctionType) return;
 
-    const sanctionRef = db.collection("sanctions").doc();
+    // Now do all writes
+    // 1. Confirm violation
+    tx.update(violationRef, {
+      status: "confirmed",
+      confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
+    // 2. Create sanction record
+    const sanctionRef = db.collection("sanctions").doc();
     tx.set(sanctionRef, {
       vehicleId,
       violationId,
@@ -64,6 +66,7 @@ async function applySanctionForViolation(violationId) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    // 3. Update vehicle status
     tx.update(db.collection("vehicles").doc(vehicleId), {
       registrationStatus: vehicleStatus,
     });
