@@ -15,6 +15,16 @@ async function applySanctionForViolation(violationId) {
     if (violation.status === "confirmed") return;
 
     const vehicleId = violation.vehicleId;
+    
+    // Get current vehicle state for validation
+    const vehicleRef = db.collection("vehicles").doc(vehicleId);
+    const vehicleSnap = await tx.get(vehicleRef);
+    const vehicle = vehicleSnap.data();
+    
+    // Validation: prevent setting flags if vehicle already has active sanction
+    if (vehicle?.hasActiveSanction) {
+      throw new Error("Vehicle already has an active sanction");
+    }
 
     // Count confirmed violations for this vehicle
     const offensesSnap = await tx.get(
@@ -69,8 +79,42 @@ async function applySanctionForViolation(violationId) {
     // 3. Update vehicle status
     tx.update(db.collection("vehicles").doc(vehicleId), {
       registrationStatus: vehicleStatus,
+      hasActiveSanction: true,
+      hasUnresolvedViolation: true,
     });
   });
 }
 
-module.exports = { applySanctionForViolation };
+async function resolveSanction(vehicleId) {
+  await db.runTransaction(async (tx) => {
+    const vehicleRef = db.collection("vehicles").doc(vehicleId);
+    const vehicleSnap = await tx.get(vehicleRef);
+    
+    if (!vehicleSnap.exists) {
+      throw new Error("Vehicle not found");
+    }
+    
+    // Reset sanction flags
+    tx.update(vehicleRef, {
+      hasActiveSanction: false,
+      hasUnresolvedViolation: false,
+      registrationStatus: "active"
+    });
+    
+    // Update active sanctions to resolved
+    const sanctionsSnap = await tx.get(
+      db.collection("sanctions")
+        .where("vehicleId", "==", vehicleId)
+        .where("status", "==", "active")
+    );
+    
+    sanctionsSnap.forEach(sanctionDoc => {
+      tx.update(sanctionDoc.ref, {
+        status: "resolved",
+        resolvedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+  });
+}
+
+module.exports = { applySanctionForViolation, resolveSanction };

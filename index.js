@@ -7,6 +7,8 @@ try {
   const app = require("./src/app");
   const { admin, db } = require("./src/firebase/admin");
 
+  const { resolveSanction } = require("./src/services/sanction.service");
+
   app.post("/sanctions/from-violation", async (req, res) => {
     try {
       const { violationId, vehicleId, confirmedBy } = req.body;
@@ -61,6 +63,8 @@ try {
       if (vehicleStatus !== "active") {
         await db.collection("vehicles").doc(vehicleId).update({
           registrationStatus: vehicleStatus,
+          hasActiveSanction: sanctionType !== "warning",
+          hasUnresolvedViolation: true,
         });
       }
 
@@ -93,6 +97,29 @@ try {
         error: "Sanction processing failed",
         details: err.message,
         stack: err.stack,
+      });
+    }
+  });
+
+  app.post("/sanctions/resolve", async (req, res) => {
+    try {
+      const { vehicleId } = req.body;
+
+      if (!vehicleId) {
+        return res.status(400).json({ error: "Vehicle ID is required" });
+      }
+
+      await resolveSanction(vehicleId);
+
+      res.json({
+        success: true,
+        message: "Sanction resolved successfully",
+      });
+    } catch (err) {
+      console.error("RESOLVE SANCTION ERROR:", err);
+      res.status(500).json({
+        error: "Failed to resolve sanction",
+        details: err.message,
       });
     }
   });
