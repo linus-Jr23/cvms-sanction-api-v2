@@ -22,7 +22,7 @@ try {
         .where("status", "==", "confirmed")
         .get();
 
-      const offenseNumber = violationsSnap.size + 1; // +1 for the violation being confirmed
+      const offenseNumber = violationsSnap.size; // +1 for the violation being confirmed
 
       // 2️ Decide sanction
       let sanctionType = "warning";
