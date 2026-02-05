@@ -3,6 +3,7 @@ const cors = require("cors");
 
 const violationRoutes = require("./routes/violations.routes");
 const sanctionRoutes = require("./routes/sanctions.routes");//sanction routes
+const maintenanceRoutes = require("./routes/maintenance.routes");
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use("/api/violations", violationRoutes);
 app.use("/api/sanctions", sanctionRoutes);//sanction routes
+app.use("/api/maintenance", maintenanceRoutes);
 
 
 // Health check endpoint

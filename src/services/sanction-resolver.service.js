@@ -11,9 +11,10 @@ async function resolveExpiredSanctions() {
     const now = new Date();
     const nowTimestamp = admin.firestore.Timestamp.fromDate(now);
 
-    // Get all active sanctions that have expired
+    // Get all active suspension sanctions that have expired
     const expiredSanctionsSnap = await db
       .collection("sanctions")
+      .where("type", "==", "suspension")
       .where("status", "==", "active")
       .where("endAt", "<=", nowTimestamp)
       .get();
@@ -38,17 +39,17 @@ async function resolveExpiredSanctions() {
         `Processing expired sanction for vehicle: ${vehicleId}, type: ${type}`,
       );
 
-      // 1. Update sanction status to completed
+      // 1. Update sanction status to cleared
       batch.update(sanctionDoc.ref, {
-        status: "completed",
+        status: "cleared",
         lastEvaluatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        clearedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      // 2. Update vehicle status to clear
+      // 2. Update vehicle status to cleared
       const vehicleRef = db.collection("vehicles").doc(vehicleId);
       batch.update(vehicleRef, {
-        registrationStatus: "clear",
+        registrationStatus: "cleared",
         hasActiveSanction: false,
         hasUnresolvedViolation: false,
       });
@@ -71,7 +72,7 @@ async function resolveExpiredSanctions() {
         vehicleId,
         violationId,
         type,
-        completedAt: now.toISOString(),
+        clearedAt: now.toISOString(),
       });
     }
 
@@ -133,10 +134,11 @@ async function resolveVehicleSanctions(vehicleId) {
     const now = new Date();
     const nowTimestamp = admin.firestore.Timestamp.fromDate(now);
 
-    // Get all active sanctions for this vehicle
+    // Get all active suspension sanctions for this vehicle
     const activeSanctionsSnap = await db
       .collection("sanctions")
       .where("vehicleId", "==", vehicleId)
+      .where("type", "==", "suspension")
       .where("status", "==", "active")
       .get();
 
@@ -150,9 +152,9 @@ async function resolveVehicleSanctions(vehicleId) {
     for (const sanctionDoc of activeSanctionsSnap.docs) {
       // Update sanction status
       batch.update(sanctionDoc.ref, {
-        status: "completed",
+        status: "cleared",
         lastEvaluatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        clearedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // Update related violations
@@ -171,7 +173,7 @@ async function resolveVehicleSanctions(vehicleId) {
     // Update vehicle status
     const vehicleRef = db.collection("vehicles").doc(vehicleId);
     batch.update(vehicleRef, {
-      registrationStatus: "clear",
+      registrationStatus: "cleared",
       hasActiveSanction: false,
       hasUnresolvedViolation: false,
     });

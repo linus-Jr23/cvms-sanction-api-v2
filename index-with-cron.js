@@ -1,0 +1,153 @@
+require("dotenv").config();
+
+console.log("Starting backend application with cron scheduler...");
+console.log("Environment variables loaded:", Object.keys(process.env).filter(key => key.includes('FIREBASE')).length, "Firebase vars found");
+
+try {
+  const app = require("./src/app");
+  const { admin, db } = require("./src/firebase/admin");
+  const cron = require("node-cron");
+  const { runScheduledMaintenanceJobs } = require("./scheduler");
+
+  const { resolveSanction } = require("./src/services/sanction.service");
+
+  app.post("/sanctions/from-violation", async (req, res) => {
+    try {
+      const { violationId, vehicleId, confirmedBy } = req.body;
+
+      if (!violationId || !vehicleId) {
+        return res.status(400).json({ error: "Missing data" });
+      }
+
+      // 1️ Count confirmed violations for this vehicle
+      const violationsSnap = await db
+        .collection("violations")
+        .where("vehicleId", "==", vehicleId)
+        .where("status", "==", "confirmed")
+        .get();
+
+      const offenseNumber = violationsSnap.size; // +1 for the violation being confirmed
+
+      // 2️ Decide sanction
+      let sanctionType = "warning";
+      let vehicleStatus = "warned";
+      let endAt = null;
+
+      if (offenseNumber === 2) {
+        sanctionType = "suspension";
+        vehicleStatus = "suspended";
+
+        // 30 working days (simple version = 42 calendar days)
+        endAt = admin.firestore.Timestamp.fromDate(
+          new Date(Date.now() + 42 * 24 * 60 * 60 * 1000)
+        );
+      }
+
+      if (offenseNumber >= 3) {
+        sanctionType = "revocation";
+        vehicleStatus = "revoked";
+      }
+
+      // 3️ Create sanction record
+      const sanctionRef = await db.collection("sanctions").add({
+        violationId,
+        vehicleId,
+        offenseNumber,
+        type: sanctionType,
+        status: sanctionType === "warning" ? "completed" : "active",
+        startAt: admin.firestore.FieldValue.serverTimestamp(),
+        endAt,
+        createdBy: confirmedBy,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // 4️ Update vehicle status if needed
+      if (vehicleStatus !== "active") {
+        await db.collection("vehicles").doc(vehicleId).update({
+          registrationStatus: vehicleStatus,
+          hasActiveSanction: true,
+          hasUnresolvedViolation: true,
+        });
+      }
+
+      // 5️ Mark violation as sanctioned
+      const violationRef = db.collection("violations").doc(violationId);
+      const violationDoc = await violationRef.get();
+      
+      if (violationDoc.exists) {
+        await violationRef.update({
+          sanctionApplied: true,
+          sanctionId: sanctionRef.id,
+        });
+      } else {
+        console.warn(`Violation document ${violationId} not found, skipping update`);
+      }
+
+      res.json({
+        success: true,
+        sanctionType,
+        offenseNumber,
+      });
+    } catch (err) {
+      console.error("SANCTION ERROR:", err);
+      console.error("ERROR DETAILS:", {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      res.status(500).json({
+        error: "Sanction processing failed",
+        details: err.message,
+        stack: err.stack,
+      });
+    }
+  });
+
+  app.post("/sanctions/resolve", async (req, res) => {
+    try {
+      const { vehicleId } = req.body;
+
+      if (!vehicleId) {
+        return res.status(400).json({ error: "Vehicle ID is required" });
+      }
+
+      await resolveSanction(vehicleId);
+
+      res.json({
+        success: true,
+        message: "Sanction resolved successfully",
+      });
+    } catch (err) {
+      console.error("RESOLVE SANCTION ERROR:", err);
+      res.status(500).json({
+        error: "Failed to resolve sanction",
+        details: err.message,
+      });
+    }
+  });
+
+  // Schedule maintenance jobs to run every hour
+  // Cron format: minute hour day month day-of-week
+  // '0 * * * *' = every hour at minute 0
+  cron.schedule('0 * * * *', async () => {
+    console.log('\n=== Cron job triggered: Running maintenance jobs ===');
+    try {
+      await runScheduledMaintenanceJobs();
+    } catch (error) {
+      console.error('Cron job failed:', error);
+    }
+  });
+
+  console.log("Cron scheduler initialized: Maintenance jobs will run every hour");
+
+  const PORT = process.env.PORT || 3000;
+
+  app.listen(PORT, () => {
+    console.log(`Backend running on port ${PORT}`);
+    console.log(`Health check available at: http://localhost:${PORT}/health`);
+  });
+
+} catch (error) {
+  console.error("Failed to start application:", error);
+  process.exit(1);
+}
