@@ -5,7 +5,7 @@ const violationRoutes = require("./routes/violations.routes");
 const sanctionRoutes = require("./routes/sanctions.routes");//sanction routes
 const maintenanceRoutes = require("./routes/maintenance.routes");
 const vehicleRoutes = require("./routes/vehicles.routes");
-const userRoutes = require("./routes/users.routes");
+// const userRoutes = require("./routes/users.routes");
 
 const app = express();
 
@@ -20,7 +20,7 @@ app.use("/api/violations", violationRoutes);
 app.use("/api/sanctions", sanctionRoutes);//sanction routes
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/vehicles", vehicleRoutes);
-app.use("/api/users", userRoutes);
+// app.use("/api/users", userRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
