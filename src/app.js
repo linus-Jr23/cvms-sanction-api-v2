@@ -19,11 +19,12 @@ app.use("/api/violations", violationRoutes);
 app.use("/api/sanctions", sanctionRoutes);//sanction routes
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/users", userRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ 
-    status: "OK", 
+  res.status(200).json({
+    status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
