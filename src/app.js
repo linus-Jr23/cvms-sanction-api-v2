@@ -5,6 +5,7 @@ const violationRoutes = require("./routes/violations.routes");
 const sanctionRoutes = require("./routes/sanctions.routes");//sanction routes
 const maintenanceRoutes = require("./routes/maintenance.routes");
 const vehicleRoutes = require("./routes/vehicles.routes");
+const userRoutes = require("./routes/users.routes");
 
 const app = express();
 
