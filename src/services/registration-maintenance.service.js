@@ -41,6 +41,10 @@ async function autoExpireRegistrations() {
 
         batch.update(vehicleDoc.ref, {
           registrationStatus: "expired",
+          // Reset email flags to allow new email notices for expired registration
+          emailSent: false,
+          emailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+
         });
 
         processedDetails.push({

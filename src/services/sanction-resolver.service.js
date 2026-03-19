@@ -52,6 +52,10 @@ async function resolveExpiredSanctions() {
         registrationStatus: "cleared",
         hasActiveSanction: false,
         hasUnresolvedViolation: false,
+
+        // Reset email flags to allow new email notices for cleared sanctions
+        emailSent: false,
+        emailSentAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       // 3. Update related violations to mark sanction as no longer applied
