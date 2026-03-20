@@ -44,6 +44,7 @@ async function autoExpireRegistrations() {
           // Reset email flags to allow new email notices for expired registration
           emailSent: false,
           emailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
 
         });
 

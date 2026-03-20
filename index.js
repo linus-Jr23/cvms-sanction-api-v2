@@ -175,6 +175,7 @@ try {
         yearLevel,
         semester,
         academicYear,
+        lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
   
 

@@ -81,6 +81,7 @@ async function applySanctionForViolation(violationId) {
       registrationStatus: vehicleStatus,
       hasActiveSanction: true,
       hasUnresolvedViolation: true,
+      lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   });
 }
@@ -98,7 +99,8 @@ async function resolveSanction(vehicleId) {
     tx.update(vehicleRef, {
       hasActiveSanction: false,
       hasUnresolvedViolation: false,
-      registrationStatus: "active"
+      registrationStatus: "active",
+      lastUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     
     // Update active sanctions to resolved
