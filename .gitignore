@@ -7,3 +7,4 @@ src/firebase/service-account.json
 docs
 docs/*
 collections.json
+railway_env_variables.txt
